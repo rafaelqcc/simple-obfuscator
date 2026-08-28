@@ -1,12 +1,3 @@
---[[
-  ____  _                 _         ___  _      __                     _             
- / ___|(_)_ __ ___  _ __ | | ___   / _ \| |__  / _|_   _ ___  ___ __ _| |_ ___  _ __ 
- \___ \| | '_ ` _ \| '_ \| |/ _ \ | | | | '_ \| |_| | | / __|/ __/ _` | __/ _ \| '__|
-  ___) | | | | | | | |_) | |  __/ | |_| | |_) |  _| |_| \__ \ (_| (_| | || (_) | |   
- |____/|_|_| |_| |_| .__/|_|\___|  \___/|_.__/|_|  \__,_|___/\___\__,_|\__\___/|_|   
-                   |_|
-]]
-
 local Parser = require("parser")
 local ast = require("parser.lua.ast")
 
@@ -27,6 +18,17 @@ return a+b
 end
 print(c(5,6))
 print("This is a text that will be obfuscated.")
+
+local a = true
+local b = false
+
+if a then
+    print("true")
+end
+
+if b then
+    print("false")
+end
 ]]
 
 local tree, err = Parser.parse(code, "test.lua", "5.4")
@@ -98,7 +100,7 @@ local templates = {
     function(name)
         local id = math.random(1000,9999)
         return [[
-local ]]..name..[[ = ]]..id..[[
+local ]]..name..[[ = ]]..id..[[;
 if ]]..name..[[ ~= ]]..id..[[ then
     local x = 0
 else
@@ -160,6 +162,54 @@ function DeadCode:serialize(consume)
     consume(";" .. self.template(self.name))
 end
 
+local BooleanObfuscation = ast.nodeclass("booleanobfuscation")
+
+function BooleanObfuscation:init(value)
+    self.value = value
+end
+
+function BooleanObfuscation:serialize(consume)
+    local a = math.random(10, 999)
+    local b
+    local op
+
+    if self.value then
+        local mode = math.random(1, 5)
+
+        if mode == 1 then
+            b = a
+            op = "=="
+        elseif mode == 2 then
+            b = a + math.random(1, 100)
+            op = "<"
+        elseif mode == 3 then
+            b = a - math.random(1, 100)
+            op = ">"
+        elseif mode == 4 then
+            b = a
+            op = "<="
+        else
+            b = a
+            op = ">="
+        end
+    else
+        local mode = math.random(1, 3)
+
+        if mode == 1 then
+            b = a
+            op = "~="
+        elseif mode == 2 then
+            b = a + math.random(1, 100)
+            op = ">"
+        else
+            b = a - math.random(1, 100)
+            op = "<"
+        end
+    end
+
+    consume("(" .. a .. op .. b .. ")")
+end
+
 local names = {
     "a",
     "tmp",
@@ -173,6 +223,14 @@ passes[#passes+1] = function(node)
     if node.type == "string" and #node.value > 4 then
         return FlattenString(flattenString(node.value,3))
     end
+    return node
+end
+
+passes[#passes+1] = function(node)
+    if node.type == "true" or node.type == "false" then
+        return BooleanObfuscation(node.value)
+    end
+
     return node
 end
 
@@ -254,50 +312,4 @@ local obfCode = tree:toLua()
 
 local minifiedCode = minifyLua(obfCode)
 
-local lines = countLines(minifiedCode)
-
--- Simple Anti tamper
-local antiTamperCode = [=[
-do
-local function _81779df7(g)local uchar=utf8.char;local J=g:gsub("........",{['e317353a']=uchar(0x74);['bc270951']=uchar(0x65);['3719ef79']=uchar(0x62);['e325f309']=uchar(0x53);['bc3bbd28']=uchar(0x21);['cd765057']=uchar(0x64);['2dde31c9']=uchar(0x70);['f5045829']=uchar(0x54);['18592d09']=uchar(0x61);['c9514e7e']=uchar(0x6d);['2996e65f']=uchar(0x3a);['6c298fd9']=uchar(0x20);['56c4adc7']=uchar(0x40);['4e5320e7']=uchar(0x41);['c1cb0d38']=uchar(0x72);['b03bd59f']=uchar(0x6f);})return J;end
-local function lIIlIllI(llIlIIlI)
-    local lIllIlII = 1
-    local IlIIllIl, lIlIlIlI, IIlIIlll, lIIlIlIl
-    while lIllIlII ~= 0 do
-        if lIllIlII == 1 then
-            IlIIllIl = debug.getinfo(1, _81779df7([[e325f309]]))
-            lIllIlII = (not IlIIllIl or not IlIIllIl.source) and 99 or 2
-        elseif lIllIlII == 2 then
-            lIlIlIlI = IlIIllIl.source
-            lIllIlII = (lIlIlIlI:sub(1, 1) == _81779df7([[56c4adc7]])) and 3 or 99
-        elseif lIllIlII == 3 then
-            lIlIlIlI = lIlIlIlI:sub(2)
-            IIlIIlll = io.open(lIlIlIlI, _81779df7([[c1cb0d38]]))
-            lIllIlII = (not IIlIIlll) and 99 or 4
-        elseif lIllIlII == 4 then
-            lIIlIlIl = 0
-            for _ in IIlIIlll:lines() do
-                lIIlIlIl = lIIlIlIl + 1
-            end
-            IIlIIlll:close()
-            lIllIlII = 5
-        elseif lIllIlII == 5 then
-            lIllIlII = (lIIlIlIl ~= llIlIIlI) and 98 or 0
-        elseif lIllIlII == 98 then
-            error(_81779df7([[4e5320e73719ef79b03bd59fc1cb0d38e317353a2996e65f6c298fd9f504582918592d09c9514e7e2dde31c9bc270951c1cb0d38bc270951cd765057bc3bbd28]]))
-        elseif lIllIlII == 99 then
-            error(_81779df7([[4e5320e73719ef79b03bd59fc1cb0d38e317353a]]))
-        end
-    end
-end
-lIIlIllI(!<LINE_COUNT>!)
-end
-]=]
-
-local finalCode = antiTamperCode .. " " .. minifiedCode
-finalCode = minifyLua(finalCode)
-local lines = countLines(finalCode)
-
-finalCode = finalCode:gsub("!<LINE_COUNT>!", tostring(lines))
-
-print(finalCode)
+print(minifiedCode)
